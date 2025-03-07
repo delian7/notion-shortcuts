@@ -129,7 +129,7 @@ class NotionClient
           }
         end
       else
-        puts "Skipping unsupported node: #{node.name}"
+        blocks.concat(chunk_text(node.text, 2000, 'paragraph'))
       end
     end
 
