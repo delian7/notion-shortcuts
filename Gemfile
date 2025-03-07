@@ -1,3 +1,8 @@
 # frozen_string_literal: true
 
-gem 'notion_client', '~> 0.0.1'
+source "https://rubygems.org"
+
+# gem "rails"
+gem "redcarpet"
+
+gem "nokogiri", "~> 1.18"
