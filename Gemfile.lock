@@ -1,0 +1,13 @@
+GEM
+  specs:
+    notion_client (0.0.1)
+
+PLATFORMS
+  aarch64-linux
+  ruby
+
+DEPENDENCIES
+  notion_client (~> 0.0.1)
+
+BUNDLED WITH
+   2.6.2
