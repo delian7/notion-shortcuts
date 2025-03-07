@@ -76,7 +76,7 @@ class NotionClient
 
             if node&.text&.strip&.include?('```')
               parse_code = false
-            elsif !node&.text&.strip&.empty?
+            else
               code_content << node&.text&.strip
             end
 
@@ -92,7 +92,7 @@ class NotionClient
             }
           }
         elsif node&.text
-          blocks.concat(chunk_text(node.text, 2000, 'paragraph'))
+          blocks.concat(chunk_text(node.text.strip, 2000, 'paragraph'))
         end
       when 'h1', 'h2', 'h3'
         heading_level = case node.name
