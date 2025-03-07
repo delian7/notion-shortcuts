@@ -21,7 +21,6 @@ class NotionClient
 
     html_content = @markdown.render(markdown_content)
 
-
     children_blocks = html_to_notion_blocks(html_content)
 
     # content_chunks = markdown_content.scan(/.{1,2000}/m)
@@ -61,7 +60,7 @@ class NotionClient
   private
 
   def html_to_notion_blocks(html)
-    doc = Nokogiri::HTML::fragment(html)
+    doc = Nokogiri::HTML.fragment(html)
     blocks = []
     parse_code = false
 
@@ -89,7 +88,7 @@ class NotionClient
             type: 'code',
             code: {
               rich_text: [{ type: 'text', text: { content: code_content.join("\n") } }],
-              language: 'javascript'  # assuming code is in JavaScript, you can adjust as needed
+              language: 'javascript' # assuming code is in JavaScript, you can adjust as needed
             }
           }
         elsif node&.text
@@ -101,11 +100,13 @@ class NotionClient
                         when 'h2' then 'heading_2'
                         when 'h3' then 'heading_3'
                         end
-        blocks << {
-          object: 'block',
-          type: heading_level,
-          heading_level => { rich_text: [{ type: 'text', text: { content: node.text.strip } }] }
-        } if heading_level
+        if heading_level
+          blocks << {
+            object: 'block',
+            type: heading_level,
+            heading_level => { rich_text: [{ type: 'text', text: { content: node.text.strip } }] }
+          }
+        end
       when 'ul'
         node.css('li').each do |li|
           blocks << {
@@ -117,7 +118,7 @@ class NotionClient
           }
         end
       when 'ol'
-        node.css('li').each_with_index do |li, index|
+        node.css('li').each_with_index do |li, _index|
           blocks << {
             object: 'block',
             type: 'numbered_list_item',
@@ -142,7 +143,7 @@ class NotionClient
           type: 'code',
           code: {
             rich_text: [{ type: 'text', text: { content: code_content } }],
-            language: 'javascript'  # assuming code is in JavaScript, you can adjust as needed
+            language: 'javascript' # assuming code is in JavaScript, you can adjust as needed
           }
         }
       when 'span'
