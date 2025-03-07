@@ -63,11 +63,38 @@ class NotionClient
   def html_to_notion_blocks(html)
     doc = Nokogiri::HTML::fragment(html)
     blocks = []
+    parse_code = false
 
     doc.children.each do |node|
       case node.name
       when 'p'
-        blocks.concat(chunk_text(node.text, 2000, 'paragraph'))
+        if node.text.strip.include?('```')
+          code_content = []
+          parse_code = true
+
+          while parse_code
+            node = node.next
+
+            if node&.text&.strip&.include?('```')
+              parse_code = false
+            elsif !node&.text&.strip&.empty?
+              code_content << node&.text&.strip
+            end
+
+            parse_code = false if node.nil?
+          end
+
+          blocks << {
+            object: 'block',
+            type: 'code',
+            code: {
+              rich_text: [{ type: 'text', text: { content: code_content.join("\n") } }],
+              language: 'javascript'  # assuming code is in JavaScript, you can adjust as needed
+            }
+          }
+        elsif node&.text
+          blocks.concat(chunk_text(node.text, 2000, 'paragraph'))
+        end
       when 'h1', 'h2', 'h3'
         heading_level = case node.name
                         when 'h1' then 'heading_1'
