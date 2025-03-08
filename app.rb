@@ -7,8 +7,8 @@ require_relative 'notion_client'
 require_relative 'lambda_function'
 
 class App
-  def initialize(api_key, database_id)
-    @notion_client = NotionClient.new(api_key, database_id)
+  def initialize(api_key, database_id, problem_type)
+    @notion_client = NotionClient.new(api_key, database_id, problem_type)
   end
 
   def create_notion_page(title, markdown_content)

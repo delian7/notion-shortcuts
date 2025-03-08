@@ -3,9 +3,10 @@
 class NotionClient
   NOTION_API_URL = 'https://api.notion.com/v1/pages'
 
-  def initialize(api_key, database_id)
+  def initialize(api_key, database_id, problem_type)
     @api_key = api_key
     @database_id = database_id
+    @coding_language = problem_type == 'ruby' ? 'ruby' : 'javascript'
   end
 
   def create_page(title, markdown_content)
@@ -56,7 +57,7 @@ class NotionClient
             type: 'code',
             code: {
               rich_text: [{ type: 'text', text: { content: code_content.join("\n") } }],
-              language: 'javascript' # assuming code is in JavaScript, you can adjust as needed
+              language: @coding_language
             }
           }
         end

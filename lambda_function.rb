@@ -19,7 +19,7 @@ def lambda_handler(event:, context:)
                   ENV['NOTION_RUBY_DATABASE_ID']
                 end
 
-  app = App.new(api_key, database_id)
+  app = App.new(api_key, database_id, problem_type)
   response = app.create_notion_page(title, markdown_content)
 
   {
