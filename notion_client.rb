@@ -1,15 +1,11 @@
 # frozen_string_literal: true
 
-require 'redcarpet'
-require 'nokogiri'
-
 class NotionClient
   NOTION_API_URL = 'https://api.notion.com/v1/pages'
 
   def initialize(api_key, database_id)
     @api_key = api_key
     @database_id = database_id
-    @markdown = Redcarpet::Markdown.new(Redcarpet::Render::HTML, autolink: true, tables: true)
   end
 
   def create_page(title, markdown_content)
@@ -19,28 +15,7 @@ class NotionClient
     request['Content-Type'] = 'application/json'
     request['Notion-Version'] = '2022-06-28'
 
-    html_content = @markdown.render(markdown_content)
-
-    children_blocks = html_to_notion_blocks(html_content)
-
-    # content_chunks = markdown_content.scan(/.{1,2000}/m)
-
-    # children_blocks = content_chunks.map do |chunk|
-    #   {
-    #     object: 'block',
-    #     type: 'paragraph',
-    #     paragraph: {
-    #       rich_text: [
-    #         {
-    #           type: 'text',
-    #           text: {
-    #             content: chunk
-    #           }
-    #         }
-    #       ]
-    #     }
-    #   }
-    # end
+    children_blocks = text_to_notion_blocks(markdown_content)
 
     request.body = {
       parent: { database_id: @database_id },
@@ -59,30 +34,23 @@ class NotionClient
 
   private
 
-  def html_to_notion_blocks(html)
-    doc = Nokogiri::HTML.fragment(html)
+  def text_to_notion_blocks(text)
     blocks = []
-    parse_code = false
+    lines = text.split("\n")
+    inside_code_block = false
 
-    doc.children.each do |node|
-      case node.name
-      when 'p'
-        if node.text.strip.include?('```')
+    lines.each_with_index do |line, index|
+      if line.strip.empty?
+        next
+      elsif line.start_with?('```')
+        if inside_code_block
+          inside_code_block = false
+        else
+          inside_code_block = true
           code_content = []
-          parse_code = true
-
-          while parse_code
-            node = node.next
-
-            if node&.text&.strip&.include?('```')
-              parse_code = false
-            else
-              code_content << node&.text&.strip
-            end
-
-            parse_code = false if node.nil?
+          while (index += 1) < lines.size && !lines[index].start_with?('```')
+            code_content << lines[index]
           end
-
           blocks << {
             object: 'block',
             type: 'code',
@@ -91,73 +59,53 @@ class NotionClient
               language: 'javascript' # assuming code is in JavaScript, you can adjust as needed
             }
           }
-        elsif node&.text
-          blocks.concat(chunk_text(node.text.strip, 2000, 'paragraph'))
         end
-      when 'h1', 'h2', 'h3'
-        heading_level = case node.name
-                        when 'h1' then 'heading_1'
-                        when 'h2' then 'heading_2'
-                        when 'h3' then 'heading_3'
-                        end
-        if heading_level
-          blocks << {
-            object: 'block',
-            type: heading_level,
-            heading_level => { rich_text: [{ type: 'text', text: { content: node.text.strip } }] }
+      elsif inside_code_block
+        next
+      elsif line.start_with?('# ')
+        blocks << {
+          object: 'block',
+          type: 'heading_1',
+          heading_1: { rich_text: [{ type: 'text', text: { content: line[2..].strip } }] }
+        }
+      elsif line.start_with?('## ')
+        blocks << {
+          object: 'block',
+          type: 'heading_2',
+          heading_2: { rich_text: [{ type: 'text', text: { content: line[3..].strip } }] }
+        }
+      elsif line.start_with?('### ')
+        blocks << {
+          object: 'block',
+          type: 'heading_3',
+          heading_3: { rich_text: [{ type: 'text', text: { content: line[4..].strip } }] }
+        }
+      elsif line.start_with?('- ')
+        blocks << {
+          object: 'block',
+          type: 'bulleted_list_item',
+          bulleted_list_item: {
+            rich_text: [{ type: 'text', text: { content: line[2..].strip } }]
           }
-        end
-      when 'ul'
-        node.css('li').each do |li|
-          blocks << {
-            object: 'block',
-            type: 'bulleted_list_item',
-            bulleted_list_item: {
-              rich_text: [{ type: 'text', text: { content: li.text.strip } }]
-            }
+        }
+      elsif line.match(/^\d+\. /)
+        blocks << {
+          object: 'block',
+          type: 'numbered_list_item',
+          numbered_list_item: {
+            rich_text: [{ type: 'text', text: { content: line.split('. ', 2)[1].strip } }]
           }
-        end
-      when 'ol'
-        node.css('li').each_with_index do |li, _index|
-          blocks << {
-            object: 'block',
-            type: 'numbered_list_item',
-            numbered_list_item: {
-              rich_text: [{ type: 'text', text: { content: li.text.strip } }]
-            }
-          }
-        end
-      when 'blockquote'
+        }
+      elsif line.start_with?('> ')
         blocks << {
           object: 'block',
           type: 'quote',
           quote: {
-            rich_text: [{ type: 'text', text: { content: node.text.strip } }]
+            rich_text: [{ type: 'text', text: { content: line[2..].strip } }]
           }
         }
-      when 'code'
-        # Code block handling
-        code_content = node.text.strip
-        blocks << {
-          object: 'block',
-          type: 'code',
-          code: {
-            rich_text: [{ type: 'text', text: { content: code_content } }],
-            language: 'javascript' # assuming code is in JavaScript, you can adjust as needed
-          }
-        }
-      when 'span'
-        if node['class'] == 'math'
-          blocks << {
-            object: 'block',
-            type: 'equation',
-            equation: {
-              expression: node.text.strip
-            }
-          }
-        end
       else
-        blocks.concat(chunk_text(node.text, 2000, 'paragraph'))
+        blocks.concat(chunk_text(line.strip, 2000, 'paragraph'))
       end
     end
 
@@ -174,13 +122,5 @@ class NotionClient
         }
       }
     end
-  end
-
-  def convert_markdown_to_notion_blocks(markdown)
-    renderer = Redcarpet::Render::HTML.new
-    markdown_converter = Redcarpet::Markdown.new(renderer, autolink: true, tables: true)
-    html = markdown_converter.render(markdown)
-
-    html_to_notion_blocks(html)
   end
 end
