@@ -52,14 +52,8 @@ class NotionClient
           while (index += 1) < lines.size && !lines[index].start_with?('```')
             code_content << lines[index]
           end
-          blocks << {
-            object: 'block',
-            type: 'code',
-            code: {
-              rich_text: [{ type: 'text', text: { content: code_content.join("\n") } }],
-              language: @coding_language
-            }
-          }
+
+          blocks.concat(chunk_text(code_content.join("\n"), 2000, 'code', @coding_language))
         end
       elsif inside_code_block
         next
@@ -113,14 +107,17 @@ class NotionClient
     blocks
   end
 
-  def chunk_text(text, max_length, type)
+  def chunk_text(text, max_length, type, language = nil)
     text.scan(/.{1,#{max_length}}/m).map do |chunk|
+      content = {
+        rich_text: [{ type: 'text', text: { content: chunk.strip } }]
+      }
+      content['language'] = language unless language.nil?
+
       {
         object: 'block',
         type: type,
-        paragraph: {
-          rich_text: [{ type: 'text', text: { content: chunk.strip } }]
-        }
+        type => content
       }
     end
   end
